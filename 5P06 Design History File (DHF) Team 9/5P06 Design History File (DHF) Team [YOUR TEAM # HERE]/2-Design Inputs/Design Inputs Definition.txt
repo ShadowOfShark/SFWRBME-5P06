@@ -1,0 +1,7 @@
+Design inputs are engineering requirements that define form, function and performance, and are translated from your customer requirements (user needs).  They effectively define what the device does, how it works, and how well it performs.  Phrased another way, design inputs are a comprehensive list of specifications that can be verified by an objective method of analysis, inspection or testing.
+
+Each design input should be complete, measurable, feasible, unambiguous, non-conflicting, and traceable.
+
+You WILL revisit and refine the design inputs throughout the project. This is an iterative process.
+
+Note: Risk Specification (like design inputs) are translated for your risk identification and are an important part of your Design Input (but not the only part!). 

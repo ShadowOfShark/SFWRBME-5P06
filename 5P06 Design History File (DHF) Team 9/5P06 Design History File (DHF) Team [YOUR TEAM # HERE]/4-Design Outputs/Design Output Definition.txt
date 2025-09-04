@@ -1,0 +1,6 @@
+Design outputs are the results of a design effort at each design phase, effectively making up all the documentation needed to define the realized device.  Within the context of your 5P06 project, your design outputs are the documentation for a prototype.  You can think of the design outputs as being an exhaustive list of everything that someone else would need to reproduce what your team has managed to achieve.  Examples might include analytical models, design drawings, CAD files, source code, materials specifications, assembly directions, etc.
+
+You WILL revisit and refine the design outputs throughout the project. This is an iterative process.
+
+Note: Risk Management is an important part of your Design Output (but not the only part!). Your project must implement feasible compliance strategies.
+

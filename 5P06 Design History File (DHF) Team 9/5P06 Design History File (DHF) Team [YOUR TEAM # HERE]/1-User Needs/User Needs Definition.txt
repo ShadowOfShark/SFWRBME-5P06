@@ -1,0 +1,13 @@
+User needs formulate what the user wants, and arise from asking questions
+
+The user needs can be thought of as a vague set of wishes expressing what customers would like a product to do for them
+• Some needs are stated by the user (based on answers to questions)
+• Other needs may be identified by the designer; these are unarticulated, or latent needs
+
+Your team must establish a list of customer requirements informed by user needs and constraints relevant to the framed problem.  
+
+User needs are often broad statements that are difficult to measure. In Design Inputs, you will make user needs more specific. 
+
+You WILL revisit and refine the user needs throughout the project. This is an iterative process.
+
+Note: Risk Identification is an important part of your Design Input (but not the only part!). 

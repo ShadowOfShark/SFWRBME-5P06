@@ -1,0 +1,5 @@
+Design concept investigation. There are many ways that one can arrive at a solution to a problem or need. Often, due to our prior experience, we tend to identify and come up with designs and solutions that we have experienced or seen in the past. In design thinking, one tries to use the design criteria or the needs to abstract the problem and thereby open up a broader design space that can be explored. Using this approach generates distinctive designs that may have different working or operating principles, a combination of components or tools or use different processes or approaches to address the problem at hand. 
+
+Analyze your design ideas using relevant theory to calculate, model or simulate how they would work. Focus on the core aspect of the working principle that is required to work. Based on the analysis, determine which of the design ideas or a hybrid combination of them will best fit the design criteria or needs that you have identified previously.
+
+You WILL revisit and update the design process throughout the project. This is an iterative process.

@@ -1,0 +1,5 @@
+As a team, you are required to create a design verification plan to establish conformance with design input requirements.  Design verification answers the question, “is it correct?”.  Recall that design inputs are a comprehensive list of specifications that define form, function, and performance.  Design verification means confirming that these specifications have been met (i.e., test that the design works as intended).  To do this, your team is required to create a prototype specifically intended to test and/or evaluate design inputs.  Since the documentation for your prototype is effectively your design outputs, you can think of the design verification as a confirmation that design inputs equal design outputs.
+
+You WILL revisit and refine the design verification throughout the project. This is an iterative process.
+
+Note: Verification of your Risk Management is an important (but not the only) part of your design verification.
