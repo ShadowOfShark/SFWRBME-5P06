@@ -1,0 +1,5 @@
+1.4 Preliminary Risk V1
+Health: N/A
+Safety: Software security, Data Privacy
+Noncompliance: 
+criminal charges, lawsuits, fines and penalties, lost of client trust
