@@ -1,26 +1,21 @@
-import React, { useMemo, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useState } from "react";
 import {
-        SafeAreaView,
-        ScrollView,
-        StyleSheet,
-        Text,
-        TouchableOpacity,
-        View,
+  ActivityIndicator,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import {
-        CONDITIONS,
-        Condition,
-        QUESTIONS,
-        QuestionOption,
-} from "../constants/questions";
-import {
-        Answers,
-        computeScores,
-        scoresToProbabilities,
-} from "../utils/scoring";
+import { QUESTIONS, QuestionOption } from "../constants/questions";
+import { submitScan } from "../services/scanService";
+import { Answers } from "../utils/scoring";
 
 function ProgressBar({ current, total }: { current: number; total: number }) {
-  const width = (current / total) * 100;
+  const width = total > 0 ? (current / total) * 100 : 0;
 
   return (
     <View style={styles.progressTrack}>
@@ -60,61 +55,118 @@ function OptionCard({
   );
 }
 
-function ResultCard({
-  label,
-  score,
-  probability,
-}: {
-  label: Condition;
-  score: number;
-  probability: number;
-}) {
-  const percentage = Math.round(probability * 100);
-
-  return (
-    <View style={styles.resultCard}>
-      <View style={styles.resultHeader}>
-        <Text style={styles.resultTitle}>{label}</Text>
-        <Text style={styles.resultPercent}>{percentage}%</Text>
-      </View>
-
-      <View style={styles.resultBarTrack}>
-        <View style={[styles.resultBarFill, { width: `${percentage}%` }]} />
-      </View>
-
-      <Text style={styles.resultScore}>Score: {score.toFixed(1)}</Text>
-    </View>
-  );
-}
-
 export default function QuestionnaireScreen() {
+  const params = useLocalSearchParams();
+  const imageUri = params.imageUri as string | undefined;
+
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [answers, setAnswers] = useState<Answers>({});
-  const [showResults, setShowResults] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const currentQuestion = QUESTIONS[currentIndex];
   const selectedValue = currentQuestion
     ? answers[currentQuestion.id]
     : undefined;
 
-  const results = useMemo(() => {
-    const scores = computeScores(answers);
-    const probabilities = scoresToProbabilities(scores);
-    return { scores, probabilities };
-  }, [answers]);
-
   const handleSelect = (questionId: string, optionCode: string) => {
+    if (isSubmitting) return;
+
     setAnswers((prev) => ({
       ...prev,
       [questionId]: optionCode,
     }));
   };
 
+  const handleExit = () => {
+    if (isSubmitting) return;
+
+    const hasProgress = Object.keys(answers).length > 0;
+
+    if (!hasProgress) {
+      router.replace("/");
+      return;
+    }
+
+    Alert.alert(
+      "Exit questionnaire?",
+      "Your current progress will be lost.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Exit",
+          style: "destructive",
+          onPress: () => router.replace("/"),
+        },
+      ]
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (!imageUri) {
+      Alert.alert(
+        "Missing image",
+        "Please return to the scan page and select an image before submitting."
+      );
+      return;
+    }
+
+    if (QUESTIONS.length === 0) {
+      Alert.alert(
+        "Questionnaire unavailable",
+        "No questions are available right now. Please try again later."
+      );
+      return;
+    }
+
+    if (Object.keys(answers).length < QUESTIONS.length) {
+      Alert.alert(
+        "Incomplete questionnaire",
+        "Please answer all questions before submitting."
+      );
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const result = await submitScan(imageUri, answers);
+
+      router.push(
+        `/scan_result?result=${encodeURIComponent(JSON.stringify(result))}`
+      );
+    } catch (error) {
+      console.error("Questionnaire submit failed:", error);
+
+      Alert.alert(
+        "Submission failed",
+        "We could not submit your questionnaire right now. Please check your connection and try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleNext = () => {
-    if (!selectedValue) return;
+    if (!currentQuestion) {
+      Alert.alert(
+        "Question unavailable",
+        "We could not load this question. Please return and try again."
+      );
+      return;
+    }
+
+    if (!selectedValue) {
+      Alert.alert(
+        "Answer required",
+        "Please select an answer before continuing."
+      );
+      return;
+    }
+
+    if (isSubmitting) return;
 
     if (currentIndex === QUESTIONS.length - 1) {
-      setShowResults(true);
+      handleSubmit();
       return;
     }
 
@@ -122,62 +174,55 @@ export default function QuestionnaireScreen() {
   };
 
   const handleBack = () => {
-    if (showResults) {
-      setShowResults(false);
-      return;
-    }
+    if (isSubmitting) return;
 
     if (currentIndex > 0) {
       setCurrentIndex((prev) => prev - 1);
+    } else {
+      handleExit();
     }
   };
 
-  const handleRestart = () => {
-    setAnswers({});
-    setCurrentIndex(0);
-    setShowResults(false);
-  };
-
-  if (showResults) {
+  if (!currentQuestion && QUESTIONS.length > 0) {
     return (
       <SafeAreaView style={styles.container}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.heroCard}>
-            <Text style={styles.heroEyebrow}>Screening summary</Text>
-            <Text style={styles.heroTitle}>Your questionnaire results</Text>
-            <Text style={styles.heroSubtitle}>
-              This is a simple screening estimate, not a diagnosis. Please
-              consult a dental professional for proper evaluation.
+        <View style={styles.centeredWrap}>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>Question unavailable</Text>
+            <Text style={styles.infoText}>
+              Something went wrong loading the questionnaire.
             </Text>
+
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => router.replace("/")}
+            >
+              <Text style={styles.primaryButtonText}>Return Home</Text>
+            </TouchableOpacity>
           </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-          <View style={styles.resultsSection}>
-            {CONDITIONS.map((condition) => (
-              <ResultCard
-                key={condition}
-                label={condition}
-                score={results.scores[condition]}
-                probability={results.probabilities[condition]}
-              />
-            ))}
-          </View>
-
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={handleRestart}
-          >
-            <Text style={styles.primaryButtonText}>Start again</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.secondaryButton} onPress={handleBack}>
-            <Text style={styles.secondaryButtonText}>
-              Back to last question
+  if (QUESTIONS.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centeredWrap}>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>No questions available</Text>
+            <Text style={styles.infoText}>
+              The questionnaire is currently unavailable.
             </Text>
-          </TouchableOpacity>
-        </ScrollView>
+
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => router.replace("/")}
+            >
+              <Text style={styles.primaryButtonText}>Return Home</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </SafeAreaView>
     );
   }
@@ -188,14 +233,38 @@ export default function QuestionnaireScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            onPress={handleExit}
+            style={styles.exitButton}
+            disabled={isSubmitting}
+          >
+            <Text
+              style={[styles.exitText, isSubmitting && styles.disabledText]}
+            >
+              ← Exit to Home
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.heroCard}>
           <Text style={styles.heroEyebrow}>Dental screening</Text>
           <Text style={styles.heroTitle}>Questionnaire</Text>
           <Text style={styles.heroSubtitle}>
-            Answer each question as accurately as possible for a quick screening
-            estimate.
+            Answer each question as accurately as possible to support your oral
+            health screening.
           </Text>
         </View>
+
+        {!imageUri && (
+          <View style={styles.warningCard}>
+            <Text style={styles.warningTitle}>No image selected</Text>
+            <Text style={styles.warningText}>
+              You can still review the questions, but you will need to return to
+              the scan page before submission.
+            </Text>
+          </View>
+        )}
 
         <View style={styles.progressSection}>
           <View style={styles.progressTextRow}>
@@ -228,25 +297,34 @@ export default function QuestionnaireScreen() {
           <TouchableOpacity
             style={[
               styles.secondaryButton,
-              currentIndex === 0 && styles.disabledButton,
+              isSubmitting && styles.disabledButton,
             ]}
             onPress={handleBack}
-            disabled={currentIndex === 0}
+            disabled={isSubmitting}
           >
-            <Text style={styles.secondaryButtonText}>Back</Text>
+            <Text style={styles.secondaryButtonText}>
+              {currentIndex === 0 ? "Exit" : "Back"}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[
               styles.primaryButton,
-              !selectedValue && styles.disabledButton,
+              (!selectedValue || isSubmitting) && styles.disabledButton,
             ]}
             onPress={handleNext}
-            disabled={!selectedValue}
+            disabled={!selectedValue || isSubmitting}
           >
-            <Text style={styles.primaryButtonText}>
-              {currentIndex === QUESTIONS.length - 1 ? "See results" : "Next"}
-            </Text>
+            {isSubmitting ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator size="small" color="#FFFFFF" />
+                <Text style={styles.primaryButtonText}>Submitting...</Text>
+              </View>
+            ) : (
+              <Text style={styles.primaryButtonText}>
+                {currentIndex === QUESTIONS.length - 1 ? "Submit" : "Next"}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -262,6 +340,27 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingBottom: 40,
+  },
+  centeredWrap: {
+    flex: 1,
+    justifyContent: "center",
+    padding: 20,
+  },
+  topBar: {
+    marginBottom: 10,
+  },
+  exitButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+  },
+  exitText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#2563EB",
+  },
+  disabledText: {
+    opacity: 0.5,
   },
   heroCard: {
     backgroundColor: "#FFFFFF",
@@ -292,6 +391,47 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     color: "#475569",
+  },
+  warningCard: {
+    backgroundColor: "#FFF7ED",
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+  },
+  warningTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#9A3412",
+    marginBottom: 6,
+  },
+  warningText: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: "#9A3412",
+  },
+  infoCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 16,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 6,
+  },
+  infoText: {
+    fontSize: 15,
+    color: "#475569",
+    lineHeight: 22,
+    marginBottom: 14,
   },
   progressSection: {
     marginBottom: 18,
@@ -394,6 +534,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 18,
     alignItems: "center",
+    justifyContent: "center",
   },
   primaryButtonText: {
     color: "#FFFFFF",
@@ -417,50 +558,9 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.5,
   },
-  resultsSection: {
-    marginBottom: 20,
-    gap: 12,
-  },
-  resultCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: "#0F172A",
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  resultHeader: {
+  loadingRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
-  },
-  resultTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-  resultPercent: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#2563EB",
-  },
-  resultBarTrack: {
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: "#DBEAFE",
-    overflow: "hidden",
-    marginBottom: 10,
-  },
-  resultBarFill: {
-    height: "100%",
-    borderRadius: 999,
-    backgroundColor: "#2563EB",
-  },
-  resultScore: {
-    fontSize: 14,
-    color: "#475569",
+    gap: 8,
   },
 });
