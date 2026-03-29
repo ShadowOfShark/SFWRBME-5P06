@@ -1,9 +1,8 @@
 export type Condition =
   | "Calculus"
-  | "Cavities"
+  | "Caries"
   | "Gingivitis"
-  | "Periodontitis"
-  | "Missing teeth";
+  | "Tooth Discoloration";
 
 export type QuestionOption = {
   code: string;
@@ -18,30 +17,80 @@ export type Question = {
 
 export const CONDITIONS: Condition[] = [
   "Calculus",
-  "Cavities",
+  "Caries",
   "Gingivitis",
-  "Periodontitis",
-  "Missing teeth",
+  "Tooth Discoloration",
 ];
 
 export const QUESTIONS: Question[] = [
   {
-    id: "missing_teeth",
-    text: "Are you currently missing any teeth (not counting wisdom teeth)?",
+    id: "age_group",
+    text: "What is your age group?",
     options: [
-      { code: "none", label: "No, I am not missing any teeth" },
-      { code: "1-2", label: "Yes, I am missing 1–2 teeth" },
-      { code: "3+", label: "Yes, I am missing 3 or more teeth" },
+      { code: "under_35", label: "Under 35" },
+      { code: "35_to_55", label: "35 to 55" },
+      { code: "over_55", label: "Over 55" },
     ],
   },
   {
-    id: "last_cleaning",
+    id: "dental_visits",
     text: "When was your last professional dental cleaning?",
     options: [
       { code: "<6mo", label: "Less than 6 months ago" },
       { code: "6-12mo", label: "6–12 months ago" },
       { code: ">1yr", label: "More than 1 year ago" },
       { code: "never", label: "I have never had a professional cleaning" },
+    ],
+  },
+  {
+    id: "hygiene_habits",
+    text: "How often do you brush your teeth with fluoride toothpaste?",
+    options: [
+      { code: "twice_daily", label: "Twice a day or more" },
+      { code: "once_daily", label: "Once a day" },
+      { code: "rarely", label: "Rarely / I don't use fluoride toothpaste" },
+    ],
+  },
+  {
+    id: "diet_sugar",
+    text: "How often do you snack on sugary/starchy foods or sip sugary drinks between meals?",
+    options: [
+      { code: "rarely", label: "Rarely (mostly with meals)" },
+      { code: "sometimes", label: "1-2 times a day between meals" },
+      { code: "frequently", label: "3 or more times a day / constant sipping" },
+    ],
+  },
+  {
+    id: "staining_habits",
+    text: "Do you consume coffee, tea, red wine, or use tobacco products (smoking/chewing)?",
+    options: [
+      { code: "no", label: "No" },
+      { code: "diet_only", label: "Yes, coffee/tea/wine, but no tobacco" },
+      { code: "tobacco", label: "Yes, I use tobacco products" },
+    ],
+  },
+  {
+    id: "dry_mouth",
+    text: "Do you frequently experience dry mouth (often caused by medications or aging)?",
+    options: [
+      { code: "no", label: "No" },
+      { code: "yes", label: "Yes, my mouth often feels dry" },
+    ],
+  },
+  {
+    id: "systemic_health",
+    text: "Do you have diabetes, or a family history of severe gum disease/early tooth loss?",
+    options: [
+      { code: "no", label: "No" },
+      { code: "yes", label: "Yes (Diabetes or Family History)" },
+    ],
+  },
+  {
+    id: "trauma_history",
+    text: "Have you ever experienced a physical impact or trauma to any of your teeth?",
+    options: [
+      { code: "no", label: "No" },
+      { code: "yes", label: "Yes, a tooth was hit, chipped, or knocked loose in the past" },
     ],
   },
   {
@@ -54,73 +103,12 @@ export const QUESTIONS: Question[] = [
     ],
   },
   {
-    id: "red_swollen_gums",
-    text: "Do your gums often look red, puffy, or swollen?",
-    options: [
-      { code: "no", label: "No" },
-      { code: "mild", label: "A little / occasionally" },
-      { code: "severe", label: "Yes, very red or swollen" },
-    ],
-  },
-  {
-    id: "loose_teeth",
-    text: "Do any of your teeth feel loose, or have they shifted recently?",
-    options: [
-      { code: "no", label: "No" },
-      { code: "mild", label: "Yes, a little loose / small changes" },
-      { code: "obvious", label: "Yes, clearly loose or moved" },
-    ],
-  },
-  {
-    id: "hard_deposits",
-    text: "Can you see or feel hard yellow/brown deposits near the gumline that don't brush off?",
-    options: [
-      { code: "no", label: "No" },
-      { code: "not_sure", label: "Not sure" },
-      { code: "yes", label: "Yes" },
-    ],
-  },
-  {
     id: "pain_sensitivity",
-    text: "Do you have tooth pain or sensitivity?",
+    text: "Do you currently have tooth pain or sensitivity?",
     options: [
       { code: "no", label: "No" },
-      {
-        code: "cold_sweet",
-        label: "Yes, sensitivity to cold/sweet foods or drinks",
-      },
-      {
-        code: "chewing_or_constant",
-        label: "Yes, pain when chewing or constant/spontaneous pain",
-      },
-    ],
-  },
-  {
-    id: "visible_holes",
-    text: "Do you see any new visible holes, pits, or dark spots on your teeth?",
-    options: [
-      { code: "no", label: "No" },
-      { code: "not_sure", label: "Not sure" },
-      { code: "yes", label: "Yes" },
-    ],
-  },
-  {
-    id: "bad_breath",
-    text: "Do you or others notice persistent bad breath, even after brushing?",
-    options: [
-      { code: "no", label: "No" },
-      { code: "sometimes", label: "Sometimes" },
-      { code: "often", label: "Often" },
-    ],
-  },
-  {
-    id: "age_group",
-    text: "What is your age group?",
-    options: [
-      { code: "<18", label: "Under 18" },
-      { code: "18-35", label: "18–35" },
-      { code: "36-55", label: "36–55" },
-      { code: ">55", label: "Over 55" },
+      { code: "mild", label: "Mild sensitivity to hot/cold/sweets" },
+      { code: "severe", label: "Severe, constant pain or pain when chewing" },
     ],
   },
 ];
