@@ -11,7 +11,7 @@ export default function Index() {
         const loggedInUser = await AsyncStorage.getItem("loggedInUser");
 
         if (loggedInUser) {
-          router.replace("/home" as Href);
+          router.replace("/(tabs)" as Href);
         } else if (!hasLaunched) {
           await AsyncStorage.setItem("hasLaunched", "true");
           router.replace("/landing" as Href);

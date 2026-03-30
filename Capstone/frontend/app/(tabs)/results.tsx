@@ -1,17 +1,25 @@
-import { getScanHistory, ScanHistoryItem } from "@/services/scanHistoryStorage";
-import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-  FlatList,
-  Image,
   SafeAreaView,
   StyleSheet,
   Text,
   View,
+  FlatList,
+  Image,
+  TouchableOpacity,
+  Alert,
 } from "react-native";
+import { useFocusEffect } from "expo-router";
+import { Swipeable } from "react-native-gesture-handler";
+import {
+  deleteScanHistoryItem,
+  getScanHistory,
+  ScanHistoryItem,
+} from "@/services/scanHistoryStorage";
 
 export default function ResultsScreen() {
   const [history, setHistory] = useState<ScanHistoryItem[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const loadHistory = async () => {
     try {
@@ -25,38 +33,137 @@ export default function ResultsScreen() {
   useFocusEffect(
     useCallback(() => {
       loadHistory();
-    }, []),
+    }, [])
   );
 
-  const renderItem = ({ item }: { item: ScanHistoryItem }) => (
-    <View style={styles.card}>
-      <Image source={{ uri: item.imageUri }} style={styles.cardImage} />
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteScanHistoryItem(id);
+      setHistory((prev) => prev.filter((item) => item.id !== id));
+      if (expandedId === id) {
+        setExpandedId(null);
+      }
+    } catch (error) {
+      console.error("Failed to delete item:", error);
+      Alert.alert("Delete failed", "We could not delete this scan.");
+    }
+  };
 
-      <View style={styles.cardContent}>
-        <Text style={styles.cardDate}>
-          {new Date(item.createdAt).toLocaleDateString()}
-        </Text>
+  const confirmDelete = (id: string) => {
+    Alert.alert("Delete scan?", "This scan will be removed from your history.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => handleDelete(id),
+      },
+    ]);
+  };
 
-        <Text style={styles.cardSummary}>
-          {item.summary || "No summary available"}
-        </Text>
+  const toggleExpanded = (id: string) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  };
 
-        {item.detectedConditions && item.detectedConditions.length > 0 ? (
-          <Text style={styles.cardConditions}>
-            Detected: {item.detectedConditions.join(", ")}
+  const renderRightActions = (id: string) => {
+    return (
+      <TouchableOpacity
+        style={styles.deleteAction}
+        onPress={() => confirmDelete(id)}
+      >
+        <Text style={styles.deleteActionText}>Delete</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderProbabilities = (item: ScanHistoryItem) => {
+    if (!item.probabilities) return null;
+
+    const entries = Object.entries(item.probabilities);
+
+    if (entries.length === 0) return null;
+
+    return (
+      <View style={styles.expandedSection}>
+        <Text style={styles.expandedSectionTitle}>Model Probabilities</Text>
+        {entries.map(([key, value]) => (
+          <Text key={key} style={styles.expandedText}>
+            {key}: {(value * 100).toFixed(1)}%
           </Text>
-        ) : (
-          <Text style={styles.cardConditions}>No conditions detected</Text>
-        )}
-
-        {item.imageQualityStatus ? (
-          <Text style={styles.cardMeta}>
-            Image quality: {item.imageQualityStatus}
-          </Text>
-        ) : null}
+        ))}
       </View>
-    </View>
-  );
+    );
+  };
+
+  const renderAnswers = (item: ScanHistoryItem) => {
+    if (!item.questionnaireAnswers) return null;
+
+    const entries = Object.entries(item.questionnaireAnswers);
+
+    if (entries.length === 0) return null;
+
+    return (
+      <View style={styles.expandedSection}>
+        <Text style={styles.expandedSectionTitle}>Questionnaire Answers</Text>
+        {entries.map(([key, value]) => (
+          <Text key={key} style={styles.expandedText}>
+            {key}: {value}
+          </Text>
+        ))}
+      </View>
+    );
+  };
+
+  const renderItem = ({ item }: { item: ScanHistoryItem }) => {
+    const isExpanded = expandedId === item.id;
+
+    return (
+      <Swipeable renderRightActions={() => renderRightActions(item.id)}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => toggleExpanded(item.id)}
+          style={styles.card}
+        >
+          <Image source={{ uri: item.imageUri }} style={styles.cardImage} />
+
+          <View style={styles.cardContent}>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardDate}>
+                {new Date(item.createdAt).toLocaleDateString()}
+              </Text>
+              <Text style={styles.expandHint}>
+                {isExpanded ? "Tap to collapse" : "Tap to expand"}
+              </Text>
+            </View>
+
+            <Text style={styles.cardSummary}>
+              {item.summary || "No summary available"}
+            </Text>
+
+            {item.detectedConditions && item.detectedConditions.length > 0 ? (
+              <Text style={styles.cardConditions}>
+                Detected: {item.detectedConditions.join(", ")}
+              </Text>
+            ) : (
+              <Text style={styles.cardConditions}>No conditions detected</Text>
+            )}
+
+            {item.imageQualityStatus ? (
+              <Text style={styles.cardMeta}>
+                Image quality: {item.imageQualityStatus}
+              </Text>
+            ) : null}
+
+            {isExpanded && (
+              <View style={styles.expandedContainer}>
+                {renderProbabilities(item)}
+                {renderAnswers(item)}
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Swipeable>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -110,10 +217,19 @@ const styles = StyleSheet.create({
   cardContent: {
     padding: 14,
   },
+  cardHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
   cardDate: {
     fontSize: 12,
     color: "#6B7280",
-    marginBottom: 6,
+  },
+  expandHint: {
+    fontSize: 12,
+    color: "#94A3B8",
   },
   cardSummary: {
     fontSize: 16,
@@ -129,6 +245,39 @@ const styles = StyleSheet.create({
   cardMeta: {
     fontSize: 13,
     color: "#5A6B85",
+  },
+  expandedContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#E5EDF8",
+  },
+  expandedSection: {
+    marginBottom: 12,
+  },
+  expandedSectionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1746A2",
+    marginBottom: 6,
+  },
+  expandedText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: "#334155",
+  },
+  deleteAction: {
+    backgroundColor: "#DC2626",
+    justifyContent: "center",
+    alignItems: "center",
+    width: 92,
+    marginBottom: 16,
+    borderRadius: 20,
+  },
+  deleteActionText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 15,
   },
   emptyState: {
     flex: 1,

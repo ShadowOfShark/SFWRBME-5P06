@@ -102,6 +102,24 @@ export default function QuestionnaireScreen() {
     );
   };
 
+  const handleInvalidImage = (message?: string) => {
+    Alert.alert(
+      "Please choose another photo",
+      message ||
+        "This image did not pass the quality check. Please retake the photo or choose another one from your library.",
+      [
+        {
+          text: "Retake / Choose Another",
+          onPress: () => router.replace("/new_scan"),
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ]
+    );
+  };
+
   const handleSubmit = async () => {
     if (!imageUri) {
       Alert.alert(
@@ -131,6 +149,16 @@ export default function QuestionnaireScreen() {
       setIsSubmitting(true);
 
       const result = await submitScan(imageUri, answers);
+
+      if (result.image_quality_passed === false) {
+        handleInvalidImage(
+          result.message ||
+            result.summary ||
+            result.image_quality_status ||
+            "This image did not pass the quality check."
+        );
+        return;
+      }
 
       await saveScanToHistory({
         id: Date.now().toString(),
