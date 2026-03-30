@@ -160,7 +160,7 @@ export default function QuestionnaireScreen() {
         return;
       }
 
-      await saveScanToHistory({
+      const savedItem = {
         id: Date.now().toString(),
         imageUri,
         createdAt: new Date().toISOString(),
@@ -170,9 +170,14 @@ export default function QuestionnaireScreen() {
         imageQualityPassed: result.image_quality_passed,
         imageQualityStatus: result.image_quality_status,
         questionnaireAnswers: result.received_answers,
-      });
+      };
 
-      router.replace("/results");
+      await saveScanToHistory(savedItem);
+
+      router.replace({
+        pathname: "/scan_result",
+        params: { scanId: savedItem.id },
+      });
     } catch (error) {
       console.error("Questionnaire submit failed:", error);
 

@@ -16,7 +16,6 @@ app = FastAPI(
     version="0.5.0"
 )
 
-# Load models once at startup
 print("=== STARTUP: loading precheck service ===")
 precheck_service = OralPrecheck()
 
@@ -32,11 +31,18 @@ def root():
     return {"message": "Backend is running."}
 
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 @app.post("/analyze")
 async def analyze(
     image: UploadFile = File(...),
-    answers: str = Form(None)
+    answers: str = Form("{}")
 ):
+    print("\n=== /analyze hit ===")
+
     if not image.filename:
         raise HTTPException(status_code=400, detail="No image filename provided.")
 
@@ -45,18 +51,17 @@ async def analyze(
     if not image_bytes:
         raise HTTPException(status_code=400, detail="Uploaded image is empty.")
 
-    print("\n=== IMAGE RECEIVED ===")
+    print("=== IMAGE RECEIVED ===")
     print("Filename:", image.filename)
+    print("Content type:", image.content_type)
     print("Bytes received:", len(image_bytes))
 
-    parsed_answers = {}
-    if answers is not None:
-        try:
-            parsed_answers = json.loads(answers)
-            print("=== ANSWERS RECEIVED ===")
-            print(parsed_answers)
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid answers JSON.")
+    try:
+        parsed_answers = json.loads(answers) if answers else {}
+        print("=== ANSWERS RECEIVED ===")
+        print(parsed_answers)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid answers JSON.")
 
     suffix = os.path.splitext(image.filename)[1] or ".jpg"
     temp_path = None
@@ -69,7 +74,6 @@ async def analyze(
         print("=== TEMP IMAGE SAVED ===")
         print("Temp path:", temp_path)
 
-        # Step 1: precheck
         precheck_result = precheck_service.run(temp_path)
 
         print("=== PRECHECK RESULT ===")
@@ -77,7 +81,6 @@ async def analyze(
 
         if precheck_result["status"] == "fail":
             print("=== EARLY EXIT: PRECHECK FAILED ===")
-
             return {
                 "success": False,
                 "summary": "Image failed precheck. Please retake a clearer photo.",
@@ -93,7 +96,6 @@ async def analyze(
                 "detected_conditions": []
             }
 
-        # Step 2: image inference
         image_probabilities = predict_image_probabilities(
             image_path=temp_path,
             model=image_model,
@@ -103,13 +105,11 @@ async def analyze(
         print("=== IMAGE INFERENCE RESULT ===")
         print(image_probabilities)
 
-        # Step 3: questionnaire inference
         questionnaire_probabilities = predict_questionnaire_probabilities(parsed_answers)
 
         print("=== QUESTIONNAIRE INFERENCE RESULT ===")
         print(questionnaire_probabilities)
 
-        # Step 4: fusion
         final_probabilities = combine_probabilities(
             image_probabilities,
             questionnaire_probabilities

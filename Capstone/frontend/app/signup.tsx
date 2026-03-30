@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router, type Href } from "expo-router";
-import { useState } from "react";
+import { router, type Href, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -14,16 +14,94 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const MIN_PASSWORD_LENGTH = 8;
+const TERMS_VIEWED_KEY = "termsViewed";
+
+const COMMON_PASSWORDS = new Set([
+  "password",
+  "password123",
+  "12345678",
+  "123456789",
+  "qwerty123",
+  "letmein",
+  "admin123",
+]);
+
+function validatePassword(password: string) {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`;
+  }
+
+  if (password.length > 64) {
+    return "Password must be 64 characters or fewer.";
+  }
+
+  if (COMMON_PASSWORDS.has(password.toLowerCase())) {
+    return "Please choose a stronger password.";
+  }
+
+  return null;
+}
+
 export default function SignupScreen() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [agreed, setAgreed] = useState(false);
+  const [hasViewedTerms, setHasViewedTerms] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      const loadTermsStatus = async () => {
+        try {
+          const viewed = await AsyncStorage.getItem(TERMS_VIEWED_KEY);
+          setHasViewedTerms(viewed === "true");
+        } catch (error) {
+          console.error("Failed to load terms status:", error);
+        }
+      };
+
+      loadTermsStatus();
+    }, [])
+  );
+
+  const passwordError = useMemo(() => {
+    if (!password) return "";
+    return validatePassword(password) ?? "";
+  }, [password]);
+
+  const passwordsMatch =
+    confirmPassword.length === 0 || password === confirmPassword;
+
+  const openTerms = () => {
+    router.push("/terms" as Href);
+  };
+
+  const handleCheckboxPress = () => {
+    if (!hasViewedTerms) {
+      Alert.alert(
+        "Read Terms Required",
+        "Please open and review the Terms & Privacy page before agreeing."
+      );
+      return;
+    }
+
+    setAgreed((prev) => !prev);
+  };
 
   const handleSignup = async () => {
-    if (!username || !email || !password || !confirmPassword) {
+    const trimmedUsername = username.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedUsername || !trimmedEmail || !password || !confirmPassword) {
       Alert.alert("Missing information", "Please fill in all fields.");
+      return;
+    }
+
+    const passwordValidationMessage = validatePassword(password);
+    if (passwordValidationMessage) {
+      Alert.alert("Weak password", passwordValidationMessage);
       return;
     }
 
@@ -32,20 +110,29 @@ export default function SignupScreen() {
       return;
     }
 
+    if (!hasViewedTerms) {
+      Alert.alert(
+        "Terms not opened",
+        "Please open and read the Terms & Privacy page before continuing."
+      );
+      return;
+    }
+
     if (!agreed) {
       Alert.alert(
         "Agreement required",
-        "Please agree to the information collection terms."
+        "Please confirm that you agree to the Terms & Privacy Policy."
       );
       return;
     }
 
     try {
       const user = {
-        username,
-        email,
+        username: trimmedUsername,
+        email: trimmedEmail,
         password,
         agreed,
+        termsViewed: hasViewedTerms,
       };
 
       await AsyncStorage.setItem("user", JSON.stringify(user));
@@ -81,7 +168,9 @@ export default function SignupScreen() {
               style={styles.input}
               value={username}
               onChangeText={setUsername}
+              autoCapitalize="words"
             />
+
             <TextInput
               placeholder="Email"
               placeholderTextColor="#94A3B8"
@@ -89,7 +178,10 @@ export default function SignupScreen() {
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
+              keyboardType="email-address"
+              autoCorrect={false}
             />
+
             <TextInput
               placeholder="Password"
               placeholderTextColor="#94A3B8"
@@ -97,28 +189,73 @@ export default function SignupScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
             />
+
+            {!!password && (
+              <Text style={passwordError ? styles.helperError : styles.helperText}>
+                {passwordError ||
+                  "Password looks good. Use 8+ characters; longer is better."}
+              </Text>
+            )}
+
             <TextInput
               placeholder="Confirm Password"
               placeholderTextColor="#94A3B8"
-              style={styles.input}
+              style={[
+                styles.input,
+                confirmPassword.length > 0 && !passwordsMatch && styles.inputError,
+              ]}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
             />
 
-            <Pressable
-              style={styles.checkboxRow}
-              onPress={() => setAgreed(!agreed)}
-            >
-              <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
-                {agreed && <Text style={styles.checkmark}>✓</Text>}
-              </View>
-              <Text style={styles.checkboxText}>
-                I agree to the collection and storage of my information for app
-                use.
+            {confirmPassword.length > 0 && !passwordsMatch && (
+              <Text style={styles.helperError}>Passwords do not match.</Text>
+            )}
+
+            <View style={styles.termsBlock}>
+              <Text style={styles.termsLead}>
+                Please review our{" "}
+                <Text style={styles.linkInline} onPress={openTerms}>
+                  Terms & Privacy Policy
+                </Text>{" "}
+                before creating an account.
               </Text>
-            </Pressable>
+
+              <Pressable style={styles.checkboxRow} onPress={handleCheckboxPress}>
+                <View
+                  style={[
+                    styles.checkbox,
+                    !hasViewedTerms && styles.checkboxDisabled,
+                    agreed && styles.checkboxChecked,
+                  ]}
+                >
+                  {agreed && <Text style={styles.checkmark}>✓</Text>}
+                </View>
+
+                <Text style={styles.checkboxText}>
+                  I have read and agree to the Terms & Privacy Policy, including
+                  the collection and handling of personal and health-related data.
+                </Text>
+              </Pressable>
+
+              {!hasViewedTerms && (
+                <Text style={styles.helperError}>
+                  You must open the Terms & Privacy Policy before checking the box.
+                </Text>
+              )}
+
+              {hasViewedTerms && !agreed && (
+                <Text style={styles.helperText}>
+                  Terms page reviewed. You can now confirm your agreement.
+                </Text>
+              )}
+            </View>
 
             <TouchableOpacity style={styles.button} onPress={handleSignup}>
               <Text style={styles.buttonText}>Sign Up</Text>
@@ -176,16 +313,48 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    marginBottom: 14,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: "#DCEAFE",
     color: "#0F172A",
   },
+  inputError: {
+    borderColor: "#DC2626",
+  },
+  helperText: {
+    marginBottom: 12,
+    marginLeft: 4,
+    color: "#475569",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  helperError: {
+    marginBottom: 12,
+    marginLeft: 4,
+    color: "#DC2626",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  termsBlock: {
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  termsLead: {
+    color: "#475569",
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 10,
+  },
+  linkInline: {
+    color: "#1E6FD9",
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
   checkboxRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 22,
-    marginTop: 4,
+    marginBottom: 10,
+    marginTop: 2,
   },
   checkbox: {
     width: 22,
@@ -198,6 +367,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 2,
     backgroundColor: "#FFFFFF",
+  },
+  checkboxDisabled: {
+    borderColor: "#CBD5E1",
+    backgroundColor: "#F1F5F9",
   },
   checkboxChecked: {
     backgroundColor: "#1E6FD9",
@@ -218,6 +391,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: "center",
     marginBottom: 14,
+    marginTop: 4,
   },
   buttonText: {
     color: "white",

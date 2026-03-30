@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -33,12 +34,16 @@ export default function SettingsScreen() {
 
   const handleResetApp = async () => {
     try {
-      await AsyncStorage.removeItem("hasLaunched");
-      await AsyncStorage.removeItem("loggedInUser");
-      await AsyncStorage.removeItem("user");
+      await AsyncStorage.multiRemove([
+        "hasLaunched",
+        "loggedInUser",
+        "user",
+        "scanHistory",
+      ]);
+
       Alert.alert(
         "Reset complete",
-        "Restart the app to simulate first launch.",
+        "All demo data, including scan history, has been cleared."
       );
     } catch (error) {
       console.error("Reset error:", error);
@@ -57,25 +62,29 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.menuCard}>
-        <View style={styles.menuItem}>
+        <TouchableOpacity style={styles.menuItem} activeOpacity={0.8}>
           <Ionicons name="person-circle-outline" size={22} color="#1E6FD9" />
           <Text style={styles.menuText}>Profile Information</Text>
-        </View>
+        </TouchableOpacity>
 
-        <View style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          activeOpacity={0.8}
+          onPress={() => router.push("/privacy")}
+        >
           <Ionicons name="shield-checkmark-outline" size={22} color="#1E6FD9" />
           <Text style={styles.menuText}>Privacy & Security</Text>
-        </View>
+        </TouchableOpacity>
 
-        <View style={styles.menuItem}>
+        <TouchableOpacity style={styles.menuItem} activeOpacity={0.8}>
           <Ionicons name="notifications-outline" size={22} color="#1E6FD9" />
           <Text style={styles.menuText}>Notifications</Text>
-        </View>
+        </TouchableOpacity>
 
-        <View style={styles.menuItemNoBorder}>
+        <TouchableOpacity style={styles.menuItemNoBorder} activeOpacity={0.8}>
           <Ionicons name="help-circle-outline" size={22} color="#1E6FD9" />
           <Text style={styles.menuText}>Help & Support</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.footer}>

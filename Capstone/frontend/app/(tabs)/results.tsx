@@ -79,7 +79,6 @@ export default function ResultsScreen() {
     if (!item.probabilities) return null;
 
     const entries = Object.entries(item.probabilities);
-
     if (entries.length === 0) return null;
 
     return (
@@ -98,7 +97,6 @@ export default function ResultsScreen() {
     if (!item.questionnaireAnswers) return null;
 
     const entries = Object.entries(item.questionnaireAnswers);
-
     if (entries.length === 0) return null;
 
     return (
@@ -106,7 +104,7 @@ export default function ResultsScreen() {
         <Text style={styles.expandedSectionTitle}>Questionnaire Answers</Text>
         {entries.map(([key, value]) => (
           <Text key={key} style={styles.expandedText}>
-            {key}: {value}
+            {key}: {String(value)}
           </Text>
         ))}
       </View>
@@ -241,6 +239,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#1E6FD9",
     marginBottom: 4,
+    textTransform: "capitalize",
   },
   cardMeta: {
     fontSize: 13,

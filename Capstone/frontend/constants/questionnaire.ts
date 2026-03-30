@@ -1,3 +1,4 @@
+//version 1 of questionnaire, no longer sing
 export const QUESTIONS = [
   {
     id: 'missing_teeth',
