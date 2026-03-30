@@ -15,68 +15,107 @@ import * as ImagePicker from 'expo-image-picker';
 export default function NewScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
 
-  const handleTakePhoto = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-
-    if (!permission.granted) {
-      Alert.alert('Permission needed', 'Camera permission is required.');
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: false,
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets.length > 0) {
-      const uri = result.assets[0].uri;
-      setImageUri(uri);
-    }
-  };
-
-  const handleContinue = () => {
-    if (!imageUri) {
-      Alert.alert('No image selected', 'Please take a photo first.');
-      return;
-    }
+  const goToQuestionnaire = (uri: string) => {
+    setImageUri(uri);
 
     router.push({
       pathname: '/questionnaire',
-      params: { imageUri },
+      params: { imageUri: uri },
     });
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          'Camera permission required',
+          'We need camera access so you can take a photo of your teeth.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets.length > 0) {
+        goToQuestionnaire(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'Unable to open camera.');
+    }
+  };
+
+  const handlePickFromLibrary = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          'Photo permission required',
+          'We need access only to the photo you choose.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.8,
+        selectionLimit: 1,
+      });
+
+      if (!result.canceled && result.assets.length > 0) {
+        goToQuestionnaire(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'Unable to open library.');
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.card}>
-        <View style={styles.iconCircle}>
-          <Ionicons name="camera-outline" size={30} color="#1E6FD9" />
-        </View>
-
+      <View style={styles.content}>
         <Text style={styles.title}>Start a New Screening</Text>
+
         <Text style={styles.subtitle}>
-          Take a photo first, then complete the questionnaire to assess oral
-          health risk.
+          Capture or upload a photo, then complete the questionnaire.
+        </Text>
+
+        <Text style={styles.privacyText}>
+          Only your selected image will be used for analysis.
         </Text>
 
         {imageUri ? (
           <Image source={{ uri: imageUri }} style={styles.previewImage} />
-        ) : null}
+        ) : (
+          <View style={styles.placeholderBox}>
+            <Ionicons name="image-outline" size={36} color="#7A8CA8" />
+            <Text style={styles.placeholderText}>No image selected</Text>
+          </View>
+        )}
 
-        <TouchableOpacity style={styles.primaryButton} onPress={handleTakePhoto}>
-          <Text style={styles.primaryButtonText}>
-            {imageUri ? 'Retake Photo' : 'Take Photo'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.actionCard} onPress={handleTakePhoto}>
+            <Ionicons name="camera" size={26} color="#1E6FD9" />
+            <Text style={styles.actionText}>
+              {imageUri ? 'Retake' : 'Camera'}
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.secondaryButton, !imageUri && styles.disabledButton]}
-          onPress={handleContinue}
-          disabled={!imageUri}
-        >
-          <Text style={styles.secondaryButtonText}>Continue to Questionnaire</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.actionCard} onPress={handlePickFromLibrary}>
+            <Ionicons name="images-outline" size={26} color="#1E6FD9" />
+            <Text style={styles.actionText}>Library</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -86,77 +125,70 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F4F8FF',
-    justifyContent: 'center',
-    padding: 20,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 24,
-    alignItems: 'center',
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
-  },
-  iconCircle: {
-    width: 74,
-    height: 74,
-    borderRadius: 37,
-    backgroundColor: '#EAF2FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    justifyContent: 'flex-start',
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
     color: '#0F172A',
-    marginBottom: 10,
     textAlign: 'center',
+    marginBottom: 10,
   },
   subtitle: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
     color: '#5A6B85',
     textAlign: 'center',
-    marginBottom: 22,
+    marginBottom: 6,
+  },
+  privacyText: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 20,
   },
   previewImage: {
     width: '100%',
-    height: 220,
+    height: 200,
     borderRadius: 20,
     marginBottom: 20,
   },
-  primaryButton: {
-    backgroundColor: '#1E6FD9',
-    paddingVertical: 15,
-    paddingHorizontal: 26,
-    borderRadius: 16,
+  placeholderBox: {
     width: '100%',
-    marginBottom: 12,
+    height: 200,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D9E6FA',
+    justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 20,
   },
-  secondaryButton: {
-    backgroundColor: '#EAF2FF',
-    paddingVertical: 15,
-    paddingHorizontal: 26,
-    borderRadius: 16,
-    width: '100%',
+  placeholderText: {
+    marginTop: 8,
+    color: '#7A8CA8',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  actionCard: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    paddingVertical: 18,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E3ECF7',
   },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  secondaryButtonText: {
+  actionText: {
+    marginTop: 6,
+    fontWeight: '600',
     color: '#1E6FD9',
-    fontSize: 17,
-    fontWeight: '700',
   },
 });

@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { QUESTIONS, QuestionOption } from "../constants/questions";
 import { submitScan } from "../services/scanService";
+import { saveScanToHistory } from "../services/scanHistoryStorage";
 import { Answers } from "../utils/scoring";
 
 function ProgressBar({ current, total }: { current: number; total: number }) {
@@ -131,9 +132,19 @@ export default function QuestionnaireScreen() {
 
       const result = await submitScan(imageUri, answers);
 
-      router.push(
-        `/scan_result?result=${encodeURIComponent(JSON.stringify(result))}`
-      );
+      await saveScanToHistory({
+        id: Date.now().toString(),
+        imageUri,
+        createdAt: new Date().toISOString(),
+        summary: result.summary,
+        detectedConditions: result.detected_conditions,
+        probabilities: result.probabilities,
+        imageQualityPassed: result.image_quality_passed,
+        imageQualityStatus: result.image_quality_status,
+        questionnaireAnswers: result.received_answers,
+      });
+
+      router.replace("/results");
     } catch (error) {
       console.error("Questionnaire submit failed:", error);
 
