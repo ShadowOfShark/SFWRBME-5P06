@@ -40,7 +40,7 @@ def check_brightness(image, dark_thresh=50, bright_thresh=220):
     }
 
 
-def check_blur(image, blur_thresh=100.0):
+def check_blur(image, blur_thresh=25.0):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blur_score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
     blurry = blur_score < blur_thresh
