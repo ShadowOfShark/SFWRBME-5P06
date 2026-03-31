@@ -1,15 +1,15 @@
+import { getScanHistory, ScanHistoryItem } from "@/services/scanHistoryStorage";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Image,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
-  View,
-  Image,
-  ScrollView,
   TouchableOpacity,
+  View,
 } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
-import { getScanHistory, ScanHistoryItem } from "@/services/scanHistoryStorage";
 
 type ConditionCopy = {
   moderate: string;
@@ -21,24 +21,21 @@ const CONDITION_CONTENT: Record<string, ConditionCopy> = {
   calculus: {
     moderate:
       "We noticed some signs of plaque hardening into tartar along the gumline.",
-    high:
-      "There appears to be significant tartar buildup on your teeth.",
+    high: "There appears to be significant tartar buildup on your teeth.",
     recommendation:
       "Tartar cannot be brushed away at home. Book a professional cleaning with a hygienist to have it safely scaled off.",
   },
   caries: {
     moderate:
       "There are indicators of potential early-stage enamel wear or decay.",
-    high:
-      "High likelihood of a cavity or structural tooth decay detected.",
+    high: "High likelihood of a cavity or structural tooth decay detected.",
     recommendation:
       "Limit sugary snacks and acidic drinks. Schedule an exam with a dentist so they can check this area with an X-ray before it causes pain.",
   },
   gingivitis: {
     moderate:
       "Your gums are showing early signs of inflammation or mild irritation.",
-    high:
-      "High likelihood of gingivitis. Your gums appear significantly red, swollen, or prone to bleeding.",
+    high: "High likelihood of gingivitis. Your gums appear significantly red, swollen, or prone to bleeding.",
     recommendation:
       "Upgrade your routine: brush twice daily with a soft-bristle brush, floss every single night, and consider an antibacterial mouthwash to soothe the gums.",
   },
@@ -83,7 +80,7 @@ export default function ScanResultScreen() {
     if (!item?.probabilities) return [];
 
     return Object.entries(item.probabilities).filter(
-      ([, value]) => typeof value === "number" && value >= 0.5
+      ([, value]) => typeof value === "number" && value >= 0.5,
     );
   }, [item]);
 

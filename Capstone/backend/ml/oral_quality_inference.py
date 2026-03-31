@@ -72,7 +72,12 @@ def predict_oral_quality(image_path: str, model, class_names):
         confidence = float(probs[pred_idx].item())
         predicted_class = class_names[pred_idx]
 
-    passed = predicted_class.lower() not in ["bad", "poor", "unusable"]
+    CONFIDENCE_THRESHOLD = 0.65
+
+    is_valid_class = predicted_class.lower() not in ["invalid_oral"]
+    is_confident = confidence >= CONFIDENCE_THRESHOLD
+
+    passed = is_valid_class and is_confident
 
     return {
         "passed": passed,

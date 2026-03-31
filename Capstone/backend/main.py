@@ -36,6 +36,26 @@ def health():
     return {"status": "ok"}
 
 
+def should_fail_precheck(precheck_result: dict) -> tuple[bool, list[str]]:
+    failures = list(precheck_result.get("failures", []))
+    rules_report = precheck_result.get("rules_report", {}) or {}
+    model_report = rules_report.get("checks", {}).get("model_report", {}) or {}
+
+    predicted_class = model_report.get("predicted_class")
+    model_passed = model_report.get("passed", True)
+
+    if predicted_class == "invalid_oral":
+        if "invalid_oral" not in failures:
+            failures.append("invalid_oral")
+
+    if model_passed is False:
+        if "model_report" not in failures:
+            failures.append("model_report")
+
+    should_fail = precheck_result.get("status") == "fail" or len(failures) > 0
+    return should_fail, failures
+
+
 @app.post("/analyze")
 async def analyze(
     image: UploadFile = File(...),
@@ -79,15 +99,17 @@ async def analyze(
         print("=== PRECHECK RESULT ===")
         print(precheck_result)
 
-        if precheck_result["status"] == "fail":
+        should_fail, normalized_failures = should_fail_precheck(precheck_result)
+
+        if should_fail:
             print("=== EARLY EXIT: PRECHECK FAILED ===")
             return {
                 "success": False,
                 "summary": "Image failed precheck. Please retake a clearer photo.",
                 "image_quality_passed": False,
-                "image_quality_status": precheck_result["status"],
-                "failures": precheck_result["failures"],
-                "warnings": precheck_result["warnings"],
+                "image_quality_status": "fail",
+                "failures": normalized_failures,
+                "warnings": precheck_result.get("warnings", []),
                 "checks": precheck_result,
                 "received_answers": parsed_answers,
                 "image_probabilities": {},
@@ -126,10 +148,10 @@ async def analyze(
         return {
             "success": True,
             "summary": f"Analysis completed successfully for {image.filename}.",
-            "image_quality_passed": True,
-            "image_quality_status": precheck_result["status"],
-            "failures": precheck_result["failures"],
-            "warnings": precheck_result["warnings"],
+            "image_quality_passed": precheck_result.get("status") == "pass",
+            "image_quality_status": precheck_result.get("status", "pass"),
+            "failures": precheck_result.get("failures", []),
+            "warnings": precheck_result.get("warnings", []),
             "checks": precheck_result,
             "received_answers": parsed_answers,
             "image_probabilities": image_probabilities,

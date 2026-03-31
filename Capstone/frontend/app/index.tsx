@@ -5,26 +5,30 @@ import { ActivityIndicator, View } from "react-native";
 
 export default function Index() {
   useEffect(() => {
-    const checkFirstLaunch = async () => {
+    const checkAppState = async () => {
       try {
         const hasLaunched = await AsyncStorage.getItem("hasLaunched");
         const loggedInUser = await AsyncStorage.getItem("loggedInUser");
 
         if (loggedInUser) {
           router.replace("/(tabs)/new_scan" as Href);
-        } else if (!hasLaunched) {
+          return;
+        }
+
+        if (!hasLaunched) {
           await AsyncStorage.setItem("hasLaunched", "true");
           router.replace("/landing" as Href);
-        } else {
-          router.replace("/login" as Href);
+          return;
         }
+
+        router.replace("/login" as Href);
       } catch (error) {
         console.error("Error checking app launch status:", error);
         router.replace("/landing" as Href);
       }
     };
 
-    checkFirstLaunch();
+    checkAppState();
   }, []);
 
   return (

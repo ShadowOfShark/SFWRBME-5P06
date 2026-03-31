@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router, type Href, useFocusEffect } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
@@ -11,7 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -63,7 +63,7 @@ export default function SignupScreen() {
       };
 
       loadTermsStatus();
-    }, [])
+    }, []),
   );
 
   const passwordError = useMemo(() => {
@@ -82,7 +82,7 @@ export default function SignupScreen() {
     if (!hasViewedTerms) {
       Alert.alert(
         "Read Terms Required",
-        "Please open and review the Terms & Privacy page before agreeing."
+        "Please open and review the Terms & Privacy page before agreeing.",
       );
       return;
     }
@@ -113,7 +113,7 @@ export default function SignupScreen() {
     if (!hasViewedTerms) {
       Alert.alert(
         "Terms not opened",
-        "Please open and read the Terms & Privacy page before continuing."
+        "Please open and read the Terms & Privacy page before continuing.",
       );
       return;
     }
@@ -121,7 +121,7 @@ export default function SignupScreen() {
     if (!agreed) {
       Alert.alert(
         "Agreement required",
-        "Please confirm that you agree to the Terms & Privacy Policy."
+        "Please confirm that you agree to the Terms & Privacy Policy.",
       );
       return;
     }
@@ -137,11 +137,12 @@ export default function SignupScreen() {
 
       await AsyncStorage.setItem("user", JSON.stringify(user));
       await AsyncStorage.setItem("loggedInUser", JSON.stringify(user));
+      await AsyncStorage.setItem("hasLaunched", "true");
 
       Alert.alert("Success", "Account created successfully.");
-      router.replace("/home" as Href);
+      router.replace("/(tabs)/new_scan" as Href);
     } catch (error) {
-      console.error(error);
+      console.error("Signup error:", error);
       Alert.alert("Error", "Could not save user data.");
     }
   };
@@ -194,7 +195,9 @@ export default function SignupScreen() {
             />
 
             {!!password && (
-              <Text style={passwordError ? styles.helperError : styles.helperText}>
+              <Text
+                style={passwordError ? styles.helperError : styles.helperText}
+              >
                 {passwordError ||
                   "Password looks good. Use 8+ characters; longer is better."}
               </Text>
@@ -205,7 +208,9 @@ export default function SignupScreen() {
               placeholderTextColor="#94A3B8"
               style={[
                 styles.input,
-                confirmPassword.length > 0 && !passwordsMatch && styles.inputError,
+                confirmPassword.length > 0 &&
+                  !passwordsMatch &&
+                  styles.inputError,
               ]}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -227,7 +232,10 @@ export default function SignupScreen() {
                 before creating an account.
               </Text>
 
-              <Pressable style={styles.checkboxRow} onPress={handleCheckboxPress}>
+              <Pressable
+                style={styles.checkboxRow}
+                onPress={handleCheckboxPress}
+              >
                 <View
                   style={[
                     styles.checkbox,
@@ -240,13 +248,15 @@ export default function SignupScreen() {
 
                 <Text style={styles.checkboxText}>
                   I have read and agree to the Terms & Privacy Policy, including
-                  the collection and handling of personal and health-related data.
+                  the collection and handling of personal and health-related
+                  data.
                 </Text>
               </Pressable>
 
               {!hasViewedTerms && (
                 <Text style={styles.helperError}>
-                  You must open the Terms & Privacy Policy before checking the box.
+                  You must open the Terms & Privacy Policy before checking the
+                  box.
                 </Text>
               )}
 

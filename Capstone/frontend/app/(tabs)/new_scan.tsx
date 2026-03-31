@@ -1,10 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React from "react";
 import {
   Alert,
-  Image,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -13,11 +12,7 @@ import {
 } from "react-native";
 
 export default function NewScreen() {
-  const [imageUri, setImageUri] = useState<string | null>(null);
-
   const goToQuestionnaire = (uri: string) => {
-    setImageUri(uri);
-
     router.push({
       pathname: "/questionnaire",
       params: { imageUri: uri },
@@ -31,7 +26,7 @@ export default function NewScreen() {
       if (!permission.granted) {
         Alert.alert(
           "Camera permission required",
-          "We need camera access so you can take a photo of your teeth.",
+          "We need camera access so you can take a photo of your teeth."
         );
         return;
       }
@@ -60,7 +55,7 @@ export default function NewScreen() {
       if (!permission.granted) {
         Alert.alert(
           "Photo permission required",
-          "We need access only to the photo you choose.",
+          "We need access only to the photo you choose."
         );
         return;
       }
@@ -99,21 +94,17 @@ export default function NewScreen() {
           Only your selected image will be used for analysis.
         </Text>
 
-        {imageUri ? (
-          <Image source={{ uri: imageUri }} style={styles.previewImage} />
-        ) : (
-          <View style={styles.placeholderBox}>
-            <Ionicons name="image-outline" size={36} color="#7A8CA8" />
-            <Text style={styles.placeholderText}>No image selected</Text>
-          </View>
-        )}
+        <View style={styles.placeholderBox}>
+          <Ionicons name="image-outline" size={36} color="#7A8CA8" />
+          <Text style={styles.placeholderText}>
+            Choose one image to continue
+          </Text>
+        </View>
 
         <View style={styles.actionRow}>
           <TouchableOpacity style={styles.actionCard} onPress={handleTakePhoto}>
             <Ionicons name="camera" size={26} color="#1E6FD9" />
-            <Text style={styles.actionText}>
-              {imageUri ? "Retake" : "Camera"}
-            </Text>
+            <Text style={styles.actionText}>Camera</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
