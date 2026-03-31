@@ -25,7 +25,7 @@ export type AnalyzeResponse = {
   received_answers?: Record<string, string>;
 };
 
-const API_BASE_URL = "http://192.168.1.13:8000"; //ip might change .10
+const API_BASE_URL = "http://192.168.0.141"; //ip might change .10
 
 export async function submitScan(
   imageUri: string,
