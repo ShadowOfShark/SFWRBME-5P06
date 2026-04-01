@@ -24,8 +24,9 @@ export type AnalyzeResponse = {
   checks?: Record<string, any>;
   received_answers?: Record<string, string>;
 };
-
-const API_BASE_URL = "http://192.168.0.141"; //ip might change .10
+//const API_BASE_URL = "http://192.168.0.141"; //ip might change .10
+//https://sfwrbme-5p06.onrender.com
+const API_BASE_URL = "https://sfwrbme-5p06.onrender.com";
 
 export async function submitScan(
   imageUri: string,
@@ -62,44 +63,9 @@ export async function submitScan(
       throw new Error(`Backend error: ${response.status} ${text}`);
     }
 
-    return JSON.parse(text);
+    return JSON.parse(text) as AnalyzeResponse;
   } catch (error) {
     console.error("submitScan failed:", error);
     throw error;
   }
 }
-
-//NON TESTING CODE -UNBLOCK THIS after testing
-
-/* export async function submitScan(
-  imageUri: string,
-  answers: QuestionnaireAnswers
-): Promise<AnalyzeResponse> {
-  const formData = new FormData();
-
-  formData.append(
-    'image',
-    {
-      uri: imageUri,
-      name: 'oral_scan.jpg',
-      type: 'image/jpeg',
-    } as any
-  );
-
-  formData.append('answers', JSON.stringify(answers));
-
-  const response = await fetch(`${API_BASE_URL}/analyze`, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Backend error: ${response.status} ${text}`);
-  }
-
-  return response.json();
-} */

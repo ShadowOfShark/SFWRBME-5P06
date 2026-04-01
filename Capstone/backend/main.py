@@ -1,4 +1,5 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 import tempfile
 import os
 import json
@@ -6,14 +7,23 @@ import json
 from ml.preprocessing_gate import OralPrecheck
 from ml.image_inference import (
     load_model as load_image_model,
-    predict_image_probabilities
+    predict_image_probabilities,
 )
 from ml.questionnaire_inference import predict_questionnaire_probabilities
 from ml.fusion import combine_probabilities, detect_conditions
 
 app = FastAPI(
     title="Selfie Oral Screening API",
-    version="0.5.0"
+    version="0.5.0",
+)
+
+# CORS for Expo/frontend testing
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # tighten later if needed
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 print("=== STARTUP: loading precheck service ===")
@@ -36,6 +46,20 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/debug")
+def debug(request: Request):
+    return {
+        "scheme": request.url.scheme,
+        "url": str(request.url),
+        "base_url": str(request.base_url),
+        "headers": {
+            "host": request.headers.get("host"),
+            "x-forwarded-proto": request.headers.get("x-forwarded-proto"),
+            "x-forwarded-for": request.headers.get("x-forwarded-for"),
+        },
+    }
+
+
 def should_fail_precheck(precheck_result: dict) -> tuple[bool, list[str]]:
     failures = list(precheck_result.get("failures", []))
     rules_report = precheck_result.get("rules_report", {}) or {}
@@ -44,13 +68,11 @@ def should_fail_precheck(precheck_result: dict) -> tuple[bool, list[str]]:
     predicted_class = model_report.get("predicted_class")
     model_passed = model_report.get("passed", True)
 
-    if predicted_class == "invalid_oral":
-        if "invalid_oral" not in failures:
-            failures.append("invalid_oral")
+    if predicted_class == "invalid_oral" and "invalid_oral" not in failures:
+        failures.append("invalid_oral")
 
-    if model_passed is False:
-        if "model_report" not in failures:
-            failures.append("model_report")
+    if model_passed is False and "model_report" not in failures:
+        failures.append("model_report")
 
     should_fail = precheck_result.get("status") == "fail" or len(failures) > 0
     return should_fail, failures
@@ -59,7 +81,7 @@ def should_fail_precheck(precheck_result: dict) -> tuple[bool, list[str]]:
 @app.post("/analyze")
 async def analyze(
     image: UploadFile = File(...),
-    answers: str = Form("{}")
+    answers: str = Form("{}"),
 ):
     print("\n=== /analyze hit ===")
 
@@ -115,13 +137,13 @@ async def analyze(
                 "image_probabilities": {},
                 "questionnaire_probabilities": {},
                 "probabilities": {},
-                "detected_conditions": []
+                "detected_conditions": [],
             }
 
         image_probabilities = predict_image_probabilities(
             image_path=temp_path,
             model=image_model,
-            class_names=image_class_names
+            class_names=image_class_names,
         )
 
         print("=== IMAGE INFERENCE RESULT ===")
@@ -134,7 +156,7 @@ async def analyze(
 
         final_probabilities = combine_probabilities(
             image_probabilities,
-            questionnaire_probabilities
+            questionnaire_probabilities,
         )
 
         detected_conditions = detect_conditions(final_probabilities)
@@ -157,7 +179,7 @@ async def analyze(
             "image_probabilities": image_probabilities,
             "questionnaire_probabilities": questionnaire_probabilities,
             "probabilities": final_probabilities,
-            "detected_conditions": detected_conditions
+            "detected_conditions": detected_conditions,
         }
 
     except ValueError as e:
