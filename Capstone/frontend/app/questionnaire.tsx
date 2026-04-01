@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,11 @@ import {
 import { QUESTIONS, QuestionOption } from "../constants/questions";
 import { submitScan } from "../services/scanService";
 import { saveScanToHistory } from "../services/scanHistoryStorage";
+import {
+  clearTempScanDraft,
+  getTempScanDraft,
+  updateTempScanDraft,
+} from "../services/tempScanDraftStorage";
 import { Answers } from "../utils/scoring";
 
 function ProgressBar({ current, total }: { current: number; total: number }) {
@@ -63,19 +68,61 @@ export default function QuestionnaireScreen() {
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [answers, setAnswers] = useState<Answers>({});
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isRestoringDraft, setIsRestoringDraft] = useState<boolean>(true);
 
   const currentQuestion = QUESTIONS[currentIndex];
   const selectedValue = currentQuestion
     ? answers[currentQuestion.id]
     : undefined;
 
-  const handleSelect = (questionId: string, optionCode: string) => {
+  useEffect(() => {
+    const restoreDraft = async () => {
+      try {
+        const draft = await getTempScanDraft();
+
+        if (draft?.questionnaireAnswers) {
+          setAnswers(draft.questionnaireAnswers as Answers);
+
+          const answeredCount = Object.keys(draft.questionnaireAnswers).length;
+          const nextIndex =
+            answeredCount > 0
+              ? Math.min(answeredCount - 1, QUESTIONS.length - 1)
+              : 0;
+
+          setCurrentIndex(nextIndex);
+        }
+
+        if (imageUri) {
+          await updateTempScanDraft({ imageUri });
+        }
+      } catch (error) {
+        console.error("Failed to restore questionnaire draft:", error);
+      } finally {
+        setIsRestoringDraft(false);
+      }
+    };
+
+    restoreDraft();
+  }, [imageUri]);
+
+  const handleSelect = async (questionId: string, optionCode: string) => {
     if (isSubmitting) return;
 
-    setAnswers((prev) => ({
-      ...prev,
+    const updatedAnswers = {
+      ...answers,
       [questionId]: optionCode,
-    }));
+    };
+
+    setAnswers(updatedAnswers);
+
+    try {
+      await updateTempScanDraft({
+        imageUri,
+        questionnaireAnswers: updatedAnswers,
+      });
+    } catch (error) {
+      console.error("Failed to autosave questionnaire draft:", error);
+    }
   };
 
   const handleExit = () => {
@@ -84,6 +131,7 @@ export default function QuestionnaireScreen() {
     const hasProgress = Object.keys(answers).length > 0;
 
     if (!hasProgress) {
+      clearTempScanDraft();
       router.replace("/");
       return;
     }
@@ -96,9 +144,12 @@ export default function QuestionnaireScreen() {
         {
           text: "Exit",
           style: "destructive",
-          onPress: () => router.replace("/"),
+          onPress: async () => {
+            await clearTempScanDraft();
+            router.replace("/");
+          },
         },
-      ]
+      ],
     );
   };
 
@@ -106,7 +157,7 @@ export default function QuestionnaireScreen() {
     Alert.alert(
       "Please choose another photo",
       message ||
-        "This image did not pass the quality check. Please retake the photo or choose another one from your library.",
+        "This image did not pass the quality check. Your questionnaire answers have been saved, so you only need to retake the photo or choose another one from your library.",
       [
         {
           text: "Retake / Choose Another",
@@ -116,15 +167,49 @@ export default function QuestionnaireScreen() {
           text: "Cancel",
           style: "cancel",
         },
-      ]
+      ],
     );
+  };
+
+  const buildRecommendations = (probabilities?: Record<string, number>) => {
+    if (!probabilities) return [];
+
+    const getRiskLevel = (value: number): "low" | "moderate" | "high" => {
+      const percent = value * 100;
+      if (percent < 50) return "low";
+      if (percent < 75) return "moderate";
+      return "high";
+    };
+
+    const recommendationMap: Record<string, string> = {
+      calculus:
+        "Book a professional dental cleaning, since tartar cannot be removed effectively at home.",
+      caries:
+        "Reduce sugary and acidic foods, and schedule a dental exam to assess for possible cavities.",
+      gingivitis:
+        "Brush twice daily, floss every night, and consider a gum-care mouthwash. If bleeding continues, book a dental visit.",
+      tooth_discoloration:
+        "Reduce staining habits such as coffee, tea, or tobacco, and ask your dentist about whitening if needed.",
+    };
+
+    return Object.entries(probabilities)
+      .filter(([, value]) => typeof value === "number" && value >= 0.5)
+      .sort((a, b) => b[1] - a[1])
+      .map(([condition, value]) => ({
+        condition,
+        percentage: Number((value * 100).toFixed(1)),
+        riskLevel: getRiskLevel(value),
+        recommendation:
+          recommendationMap[condition] ??
+          "Follow up with a dental professional for further assessment.",
+      }));
   };
 
   const handleSubmit = async () => {
     if (!imageUri) {
       Alert.alert(
         "Missing image",
-        "Please return to the scan page and select an image before submitting."
+        "Please return to the scan page and select an image before submitting.",
       );
       return;
     }
@@ -132,7 +217,7 @@ export default function QuestionnaireScreen() {
     if (QUESTIONS.length === 0) {
       Alert.alert(
         "Questionnaire unavailable",
-        "No questions are available right now. Please try again later."
+        "No questions are available right now. Please try again later.",
       );
       return;
     }
@@ -140,13 +225,18 @@ export default function QuestionnaireScreen() {
     if (Object.keys(answers).length < QUESTIONS.length) {
       Alert.alert(
         "Incomplete questionnaire",
-        "Please answer all questions before submitting."
+        "Please answer all questions before submitting.",
       );
       return;
     }
 
     try {
       setIsSubmitting(true);
+
+      await updateTempScanDraft({
+        imageUri,
+        questionnaireAnswers: answers,
+      });
 
       const result = await submitScan(imageUri, answers);
 
@@ -155,7 +245,7 @@ export default function QuestionnaireScreen() {
           result.message ||
             result.summary ||
             result.image_quality_status ||
-            "This image did not pass the quality check."
+            "This image did not pass the quality check.",
         );
         return;
       }
@@ -167,12 +257,11 @@ export default function QuestionnaireScreen() {
         summary: result.summary,
         detectedConditions: result.detected_conditions,
         probabilities: result.probabilities,
-        imageQualityPassed: result.image_quality_passed,
-        imageQualityStatus: result.image_quality_status,
-        questionnaireAnswers: result.received_answers,
+        recommendations: buildRecommendations(result.probabilities),
       };
 
       await saveScanToHistory(savedItem);
+      await clearTempScanDraft();
 
       router.replace({
         pathname: "/scan_result",
@@ -183,7 +272,7 @@ export default function QuestionnaireScreen() {
 
       Alert.alert(
         "Submission failed",
-        "We could not submit your questionnaire right now. Please check your connection and try again."
+        "We could not submit your questionnaire right now. Please check your connection and try again.",
       );
     } finally {
       setIsSubmitting(false);
@@ -194,7 +283,7 @@ export default function QuestionnaireScreen() {
     if (!currentQuestion) {
       Alert.alert(
         "Question unavailable",
-        "We could not load this question. Please return and try again."
+        "We could not load this question. Please return and try again.",
       );
       return;
     }
@@ -202,7 +291,7 @@ export default function QuestionnaireScreen() {
     if (!selectedValue) {
       Alert.alert(
         "Answer required",
-        "Please select an answer before continuing."
+        "Please select an answer before continuing.",
       );
       return;
     }
@@ -226,6 +315,17 @@ export default function QuestionnaireScreen() {
       handleExit();
     }
   };
+
+  if (isRestoringDraft) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centeredWrap}>
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text style={styles.loadingText}>Restoring your progress...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!currentQuestion && QUESTIONS.length > 0) {
     return (
@@ -388,7 +488,14 @@ const styles = StyleSheet.create({
   centeredWrap: {
     flex: 1,
     justifyContent: "center",
+    alignItems: "center",
     padding: 20,
+  },
+  loadingText: {
+    marginTop: 14,
+    fontSize: 15,
+    color: "#475569",
+    fontWeight: "600",
   },
   topBar: {
     marginBottom: 10,
@@ -464,6 +571,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
+    width: "100%",
   },
   infoTitle: {
     fontSize: 16,

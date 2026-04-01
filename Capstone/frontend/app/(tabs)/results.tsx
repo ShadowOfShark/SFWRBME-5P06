@@ -10,12 +10,94 @@ import {
   Alert,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { Swipeable } from "react-native-gesture-handler";
 import {
   deleteScanHistoryItem,
   getScanHistory,
   ScanHistoryItem,
 } from "@/services/scanHistoryStorage";
+
+type RiskLevel = "low" | "moderate" | "high";
+
+type ConditionCopy = {
+  recommendation: string;
+};
+
+const CONDITION_CONTENT: Record<string, ConditionCopy> = {
+  calculus: {
+    recommendation:
+      "Book a professional dental cleaning, since tartar cannot be removed effectively at home.",
+  },
+  caries: {
+    recommendation:
+      "Reduce sugary and acidic foods, and schedule a dental exam to assess for possible cavities.",
+  },
+  gingivitis: {
+    recommendation:
+      "Brush twice daily, floss every night, and consider a gum-care mouthwash. If bleeding continues, book a dental visit.",
+  },
+  tooth_discoloration: {
+    recommendation:
+      "Reduce staining habits such as coffee, tea, or tobacco, and ask your dentist about whitening if needed.",
+  },
+};
+
+function normalizeConditionKey(key: string) {
+  return key.trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function formatLabel(key: string) {
+  return key.replace(/_/g, " ");
+}
+
+function getPercent(value: number) {
+  return value * 100;
+}
+
+function getRiskLevel(value: number): RiskLevel {
+  const percent = getPercent(value);
+
+  if (percent < 50) return "low";
+  if (percent < 75) return "moderate";
+  return "high";
+}
+
+function getRiskColor(level: RiskLevel) {
+  switch (level) {
+    case "low":
+      return "#16A34A";
+    case "moderate":
+      return "#D97706";
+    case "high":
+      return "#DC2626";
+    default:
+      return "#1746A2";
+  }
+}
+
+function getRiskLabel(level: RiskLevel) {
+  switch (level) {
+    case "low":
+      return "Low risk";
+    case "moderate":
+      return "Moderate risk";
+    case "high":
+      return "High risk";
+    default:
+      return "";
+  }
+}
+
+function formatTimestamp(dateString: string) {
+  const date = new Date(dateString);
+
+  return date.toLocaleString([], {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 export default function ResultsScreen() {
   const [history, setHistory] = useState<ScanHistoryItem[]>([]);
@@ -33,7 +115,7 @@ export default function ResultsScreen() {
   useFocusEffect(
     useCallback(() => {
       loadHistory();
-    }, [])
+    }, []),
   );
 
   const handleDelete = async (id: string) => {
@@ -64,49 +146,90 @@ export default function ResultsScreen() {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
-  const renderRightActions = (id: string) => {
-    return (
-      <TouchableOpacity
-        style={styles.deleteAction}
-        onPress={() => confirmDelete(id)}
-      >
-        <Text style={styles.deleteActionText}>Delete</Text>
-      </TouchableOpacity>
-    );
-  };
-
   const renderProbabilities = (item: ScanHistoryItem) => {
     if (!item.probabilities) return null;
 
-    const entries = Object.entries(item.probabilities);
+    const entries = Object.entries(item.probabilities).sort((a, b) => b[1] - a[1]);
     if (entries.length === 0) return null;
 
     return (
       <View style={styles.expandedSection}>
-        <Text style={styles.expandedSectionTitle}>Model Probabilities</Text>
-        {entries.map(([key, value]) => (
-          <Text key={key} style={styles.expandedText}>
-            {key}: {(value * 100).toFixed(1)}%
-          </Text>
-        ))}
+        <Text style={styles.expandedSectionTitle}>Risk Summary</Text>
+
+        <View style={styles.legendContainer}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: "#16A34A" }]} />
+            <Text style={styles.legendText}>Low</Text>
+          </View>
+
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: "#D97706" }]} />
+            <Text style={styles.legendText}>Moderate</Text>
+          </View>
+
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: "#DC2626" }]} />
+            <Text style={styles.legendText}>High</Text>
+          </View>
+        </View>
+
+        {entries.map(([key, value]) => {
+          const level = getRiskLevel(value);
+          const color = getRiskColor(level);
+
+          return (
+            <View key={key} style={styles.riskRow}>
+              <Text style={[styles.riskText, { color }]}>
+                {formatLabel(key)}: {getPercent(value).toFixed(1)}% •{" "}
+                {getRiskLabel(level)}
+              </Text>
+            </View>
+          );
+        })}
       </View>
     );
   };
 
-  const renderAnswers = (item: ScanHistoryItem) => {
-    if (!item.questionnaireAnswers) return null;
+  const renderRecommendations = (item: ScanHistoryItem) => {
+    if (!item.probabilities) return null;
 
-    const entries = Object.entries(item.questionnaireAnswers);
-    if (entries.length === 0) return null;
+    const entries = Object.entries(item.probabilities)
+      .filter(([, value]) => typeof value === "number" && value >= 0.5)
+      .sort((a, b) => b[1] - a[1]);
+
+    if (entries.length === 0) {
+      return (
+        <View style={styles.expandedSection}>
+          <Text style={styles.expandedSectionTitle}>Recommendations</Text>
+          <Text style={styles.expandedText}>
+            Continue brushing twice daily, floss once daily, and maintain routine
+            dental checkups.
+          </Text>
+        </View>
+      );
+    }
 
     return (
       <View style={styles.expandedSection}>
-        <Text style={styles.expandedSectionTitle}>Questionnaire Answers</Text>
-        {entries.map(([key, value]) => (
-          <Text key={key} style={styles.expandedText}>
-            {key}: {String(value)}
-          </Text>
-        ))}
+        <Text style={styles.expandedSectionTitle}>Recommendations</Text>
+        {entries.map(([key, value]) => {
+          const normalizedKey = normalizeConditionKey(key);
+          const content = CONDITION_CONTENT[normalizedKey];
+          const level = getRiskLevel(value);
+          const color = getRiskColor(level);
+
+          if (!content) return null;
+
+          return (
+            <View key={key} style={styles.recommendationBlock}>
+              <Text style={[styles.recommendationTitle, { color }]}>
+                {formatLabel(key)} — {getPercent(value).toFixed(1)}% •{" "}
+                {getRiskLabel(level)}
+              </Text>
+              <Text style={styles.expandedText}>{content.recommendation}</Text>
+            </View>
+          );
+        })}
       </View>
     );
   };
@@ -115,51 +238,50 @@ export default function ResultsScreen() {
     const isExpanded = expandedId === item.id;
 
     return (
-      <Swipeable renderRightActions={() => renderRightActions(item.id)}>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() => toggleExpanded(item.id)}
-          style={styles.card}
-        >
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => toggleExpanded(item.id)}
+        style={styles.card}
+      >
+        <View style={styles.imageContainer}>
           <Image source={{ uri: item.imageUri }} style={styles.cardImage} />
 
-          <View style={styles.cardContent}>
-            <View style={styles.cardHeaderRow}>
-              <Text style={styles.cardDate}>
-                {new Date(item.createdAt).toLocaleDateString()}
-              </Text>
-              <Text style={styles.expandHint}>
-                {isExpanded ? "Tap to collapse" : "Tap to expand"}
-              </Text>
-            </View>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => confirmDelete(item.id)}
+          >
+            <Text style={styles.deleteButtonText}>✕</Text>
+          </TouchableOpacity>
+        </View>
 
-            <Text style={styles.cardSummary}>
-              {item.summary || "No summary available"}
+        <View style={styles.cardContent}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardDate}>{formatTimestamp(item.createdAt)}</Text>
+            <Text style={styles.expandHint}>
+              {isExpanded ? "Tap to collapse" : "Tap to expand"}
             </Text>
-
-            {item.detectedConditions && item.detectedConditions.length > 0 ? (
-              <Text style={styles.cardConditions}>
-                Detected: {item.detectedConditions.join(", ")}
-              </Text>
-            ) : (
-              <Text style={styles.cardConditions}>No conditions detected</Text>
-            )}
-
-            {item.imageQualityStatus ? (
-              <Text style={styles.cardMeta}>
-                Image quality: {item.imageQualityStatus}
-              </Text>
-            ) : null}
-
-            {isExpanded && (
-              <View style={styles.expandedContainer}>
-                {renderProbabilities(item)}
-                {renderAnswers(item)}
-              </View>
-            )}
           </View>
-        </TouchableOpacity>
-      </Swipeable>
+
+          <Text style={styles.cardSummary}>
+            {item.summary || "No summary available"}
+          </Text>
+
+          {item.detectedConditions && item.detectedConditions.length > 0 ? (
+            <Text style={styles.cardConditions}>
+              Detected: {item.detectedConditions.join(", ")}
+            </Text>
+          ) : (
+            <Text style={styles.cardConditions}>No conditions detected</Text>
+          )}
+
+          {isExpanded && (
+            <View style={styles.expandedContainer}>
+              {renderProbabilities(item)}
+              {renderRecommendations(item)}
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -208,9 +330,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E3ECF7",
   },
+  imageContainer: {
+    position: "relative",
+  },
   cardImage: {
     width: "100%",
     height: 180,
+  },
+  deleteButton: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deleteButtonText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "800",
   },
   cardContent: {
     padding: 14,
@@ -241,10 +382,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     textTransform: "capitalize",
   },
-  cardMeta: {
-    fontSize: 13,
-    color: "#5A6B85",
-  },
   expandedContainer: {
     marginTop: 12,
     paddingTop: 12,
@@ -252,31 +389,60 @@ const styles = StyleSheet.create({
     borderTopColor: "#E5EDF8",
   },
   expandedSection: {
-    marginBottom: 12,
+    marginBottom: 14,
   },
   expandedSectionTitle: {
     fontSize: 14,
     fontWeight: "700",
     color: "#1746A2",
+    marginBottom: 8,
+  },
+  legendContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 10,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 12,
     marginBottom: 6,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    marginRight: 6,
+  },
+  legendText: {
+    fontSize: 12,
+    color: "#475569",
+    fontWeight: "600",
+  },
+  riskRow: {
+    marginBottom: 6,
+  },
+  riskText: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: "700",
+    textTransform: "capitalize",
+  },
+  recommendationBlock: {
+    marginBottom: 10,
+  },
+  recommendationTitle: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: "800",
+    textTransform: "capitalize",
+    marginBottom: 2,
   },
   expandedText: {
     fontSize: 13,
     lineHeight: 20,
     color: "#334155",
-  },
-  deleteAction: {
-    backgroundColor: "#DC2626",
-    justifyContent: "center",
-    alignItems: "center",
-    width: 92,
-    marginBottom: 16,
-    borderRadius: 20,
-  },
-  deleteActionText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 15,
   },
   emptyState: {
     flex: 1,

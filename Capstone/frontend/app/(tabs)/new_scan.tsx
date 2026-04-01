@@ -10,23 +10,53 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import {
+  getTempScanDraft,
+  saveTempScanDraft,
+} from "@/services/tempScanDraftStorage";
 
 export default function NewScreen() {
-  const goToQuestionnaire = (uri: string) => {
-    router.push({
-      pathname: "/questionnaire",
-      params: { imageUri: uri },
-    });
+  const goToQuestionnaire = async (uri: string) => {
+    try {
+      const existingDraft = await getTempScanDraft();
+
+      await saveTempScanDraft({
+        imageUri: uri,
+        questionnaireAnswers: existingDraft?.questionnaireAnswers ?? {},
+        updatedAt: new Date().toISOString(),
+      });
+
+      router.push({
+        pathname: "/questionnaire",
+        params: { imageUri: uri, restoreDraft: "true" },
+      });
+    } catch (error) {
+      console.error("Failed to prepare temp draft:", error);
+
+      router.push({
+        pathname: "/questionnaire",
+        params: { imageUri: uri },
+      });
+    }
   };
 
   const handleTakePhoto = async () => {
     try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      const existingPermission =
+        await ImagePicker.getCameraPermissionsAsync();
 
-      if (!permission.granted) {
+      let granted = existingPermission.granted;
+
+      if (!granted) {
+        const requestedPermission =
+          await ImagePicker.requestCameraPermissionsAsync();
+        granted = requestedPermission.granted;
+      }
+
+      if (!granted) {
         Alert.alert(
           "Camera permission required",
-          "We need camera access so you can take a photo of your teeth."
+          "We need camera access so you can take a photo of your teeth.",
         );
         return;
       }
@@ -39,7 +69,7 @@ export default function NewScreen() {
       });
 
       if (!result.canceled && result.assets.length > 0) {
-        goToQuestionnaire(result.assets[0].uri);
+        await goToQuestionnaire(result.assets[0].uri);
       }
     } catch (error) {
       console.error(error);
@@ -49,13 +79,21 @@ export default function NewScreen() {
 
   const handlePickFromLibrary = async () => {
     try {
-      const permission =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const existingPermission =
+        await ImagePicker.getMediaLibraryPermissionsAsync();
 
-      if (!permission.granted) {
+      let granted = existingPermission.granted;
+
+      if (!granted) {
+        const requestedPermission =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        granted = requestedPermission.granted;
+      }
+
+      if (!granted) {
         Alert.alert(
           "Photo permission required",
-          "We need access only to the photo you choose."
+          "We need access only to the photo you choose.",
         );
         return;
       }
@@ -69,7 +107,7 @@ export default function NewScreen() {
       });
 
       if (!result.canceled && result.assets.length > 0) {
-        goToQuestionnaire(result.assets[0].uri);
+        await goToQuestionnaire(result.assets[0].uri);
       }
     } catch (error) {
       console.error(error);
@@ -160,12 +198,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#6B7280",
     textAlign: "center",
-    marginBottom: 20,
-  },
-  previewImage: {
-    width: "100%",
-    height: 200,
-    borderRadius: 20,
     marginBottom: 20,
   },
   placeholderBox: {

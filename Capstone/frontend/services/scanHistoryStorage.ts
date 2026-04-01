@@ -1,5 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+export type RiskLevel = "low" | "moderate" | "high";
+
+export type SavedRecommendation = {
+  condition: string;
+  percentage: number;
+  riskLevel: RiskLevel;
+  recommendation: string;
+};
+
 export type ScanHistoryItem = {
   id: string;
   imageUri: string;
@@ -7,18 +16,39 @@ export type ScanHistoryItem = {
   summary?: string;
   detectedConditions?: string[];
   probabilities?: Record<string, number>;
-  imageQualityPassed?: boolean;
-  imageQualityStatus?: string;
-  questionnaireAnswers?: Record<string, string>;
+  recommendations?: SavedRecommendation[];
 };
 
 const SCAN_HISTORY_KEY = "scan_history";
+
+function sanitizeHistoryItem(rawItem: any): ScanHistoryItem {
+  return {
+    id: String(rawItem?.id ?? ""),
+    imageUri: String(rawItem?.imageUri ?? ""),
+    createdAt: String(rawItem?.createdAt ?? new Date().toISOString()),
+    summary: rawItem?.summary,
+    detectedConditions: Array.isArray(rawItem?.detectedConditions)
+      ? rawItem.detectedConditions
+      : [],
+    probabilities:
+      rawItem?.probabilities && typeof rawItem.probabilities === "object"
+        ? rawItem.probabilities
+        : {},
+    recommendations: Array.isArray(rawItem?.recommendations)
+      ? rawItem.recommendations
+      : [],
+  };
+}
 
 export async function getScanHistory(): Promise<ScanHistoryItem[]> {
   try {
     const raw = await AsyncStorage.getItem(SCAN_HISTORY_KEY);
     if (!raw) return [];
-    return JSON.parse(raw);
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.map(sanitizeHistoryItem);
   } catch (error) {
     console.error("Failed to load scan history:", error);
     return [];
@@ -28,7 +58,8 @@ export async function getScanHistory(): Promise<ScanHistoryItem[]> {
 export async function saveScanToHistory(item: ScanHistoryItem): Promise<void> {
   try {
     const existing = await getScanHistory();
-    const updated = [item, ...existing];
+    const sanitizedItem = sanitizeHistoryItem(item);
+    const updated = [sanitizedItem, ...existing];
     await AsyncStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(updated));
   } catch (error) {
     console.error("Failed to save scan history:", error);
