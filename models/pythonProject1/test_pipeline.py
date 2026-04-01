@@ -56,7 +56,7 @@ if __name__ == "__main__":
         "pain_sensitivity": "mild"
     }
 
-    image_path = "2.jpg"
+    image_path = "download.jpg"
     result = predictor.predict(image_path, answers)
 
     print("\n=== FINAL RESULT ===")
