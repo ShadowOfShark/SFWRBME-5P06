@@ -132,7 +132,7 @@ export default function SettingsScreen() {
             onPress={() =>
               Alert.alert(
                 "Help & Support",
-                "For support, please contact your project team or supervisor.",
+                "For support, please contact selfiedentalai@gmail.com.",
               )
             }
           />

@@ -16,8 +16,13 @@ import {
 } from "@/services/tempScanDraftStorage";
 
 export default function NewScreen() {
-  const goToQuestionnaire = async (uri: string) => {
+  const goToQuestionnaire = async (asset: ImagePicker.ImagePickerAsset) => {
     try {
+      const uri = asset.uri;
+      const imageName =
+        asset.fileName ?? asset.fileName ?? `scan_${Date.now()}.jpg`;
+      const imageType = asset.mimeType ?? "image/jpeg";
+
       const existingDraft = await getTempScanDraft();
 
       await saveTempScanDraft({
@@ -28,14 +33,27 @@ export default function NewScreen() {
 
       router.push({
         pathname: "/questionnaire",
-        params: { imageUri: uri, restoreDraft: "true" },
+        params: {
+          imageUri: uri,
+          imageName,
+          imageType,
+          restoreDraft: "true",
+        },
       });
     } catch (error) {
       console.error("Failed to prepare temp draft:", error);
 
+      const uri = asset.uri;
+      const imageName = asset.fileName ?? `scan_${Date.now()}.jpg`;
+      const imageType = asset.mimeType ?? "image/jpeg";
+
       router.push({
         pathname: "/questionnaire",
-        params: { imageUri: uri },
+        params: {
+          imageUri: uri,
+          imageName,
+          imageType,
+        },
       });
     }
   };
@@ -68,11 +86,11 @@ export default function NewScreen() {
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets.length > 0) {
-        await goToQuestionnaire(result.assets[0].uri);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        await goToQuestionnaire(result.assets[0]);
       }
     } catch (error) {
-      console.error(error);
+      console.error("Camera error:", error);
       Alert.alert("Error", "Unable to open camera.");
     }
   };
@@ -106,11 +124,11 @@ export default function NewScreen() {
         selectionLimit: 1,
       });
 
-      if (!result.canceled && result.assets.length > 0) {
-        await goToQuestionnaire(result.assets[0].uri);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        await goToQuestionnaire(result.assets[0]);
       }
     } catch (error) {
-      console.error(error);
+      console.error("Library error:", error);
       Alert.alert("Error", "Unable to open library.");
     }
   };

@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  InteractionManager,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -63,7 +64,10 @@ function OptionCard({
 
 export default function QuestionnaireScreen() {
   const params = useLocalSearchParams();
+
   const imageUri = params.imageUri as string | undefined;
+  const imageName = params.imageName as string | undefined;
+  const imageType = params.imageType as string | undefined;
 
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [answers, setAnswers] = useState<Answers>({});
@@ -108,12 +112,19 @@ export default function QuestionnaireScreen() {
   const handleSelect = async (questionId: string, optionCode: string) => {
     if (isSubmitting) return;
 
+    const interactionStart = Date.now();
+
     const updatedAnswers = {
       ...answers,
       [questionId]: optionCode,
     };
 
     setAnswers(updatedAnswers);
+
+    InteractionManager.runAfterInteractions(() => {
+      const latency = Date.now() - interactionStart;
+      console.log("Option selection latency:", latency, "ms");
+    });
 
     try {
       await updateTempScanDraft({
@@ -230,6 +241,8 @@ export default function QuestionnaireScreen() {
       return;
     }
 
+    const totalInteractionStart = Date.now();
+
     try {
       setIsSubmitting(true);
 
@@ -238,7 +251,22 @@ export default function QuestionnaireScreen() {
         questionnaireAnswers: answers,
       });
 
-      const result = await submitScan(imageUri, answers);
+      console.log("Submitting scan with:", {
+        imageUri,
+        imageName,
+        imageType,
+      });
+
+      const requestStart = Date.now();
+      const result = await submitScan(
+        imageUri,
+        answers,
+        imageName,
+        imageType,
+      );
+      const requestLatency = Date.now() - requestStart;
+
+      console.log("Backend request latency:", requestLatency, "ms");
 
       if (result.image_quality_passed === false) {
         handleInvalidImage(
@@ -266,6 +294,11 @@ export default function QuestionnaireScreen() {
       router.replace({
         pathname: "/scan_result",
         params: { scanId: savedItem.id },
+      });
+
+      InteractionManager.runAfterInteractions(() => {
+        const totalUiLatency = Date.now() - totalInteractionStart;
+        console.log("Total submit UI latency:", totalUiLatency, "ms");
       });
     } catch (error) {
       console.error("Questionnaire submit failed:", error);
@@ -298,19 +331,33 @@ export default function QuestionnaireScreen() {
 
     if (isSubmitting) return;
 
+    const interactionStart = Date.now();
+
     if (currentIndex === QUESTIONS.length - 1) {
       handleSubmit();
       return;
     }
 
     setCurrentIndex((prev) => prev + 1);
+
+    InteractionManager.runAfterInteractions(() => {
+      const latency = Date.now() - interactionStart;
+      console.log("Next navigation latency:", latency, "ms");
+    });
   };
 
   const handleBack = () => {
     if (isSubmitting) return;
 
+    const interactionStart = Date.now();
+
     if (currentIndex > 0) {
       setCurrentIndex((prev) => prev - 1);
+
+      InteractionManager.runAfterInteractions(() => {
+        const latency = Date.now() - interactionStart;
+        console.log("Back navigation latency:", latency, "ms");
+      });
     } else {
       handleExit();
     }

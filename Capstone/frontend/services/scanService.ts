@@ -24,15 +24,18 @@ export type AnalyzeResponse = {
   checks?: Record<string, any>;
   received_answers?: Record<string, string>;
 };
-//const API_BASE_URL = "http://192.168.0.141"; //ip might change .10
-//https://sfwrbme-5p06.onrender.com
+
 const API_BASE_URL = "https://sfwrbme-5p06.onrender.com";
 
 export async function submitScan(
   imageUri: string,
   answers: QuestionnaireAnswers,
+  imageName?: string,
+  imageType?: string,
 ): Promise<AnalyzeResponse> {
   console.log("submitScan imageUri:", imageUri);
+  console.log("submitScan imageName:", imageName);
+  console.log("submitScan imageType:", imageType);
   console.log("submitScan answers:", answers);
   console.log("Sending request to:", `${API_BASE_URL}/analyze`);
 
@@ -40,8 +43,8 @@ export async function submitScan(
 
   formData.append("image", {
     uri: imageUri,
-    name: "oral_scan.jpg",
-    type: "image/jpeg",
+    name: imageName || `oral_scan_${Date.now()}.jpg`,
+    type: imageType || "image/jpeg",
   } as any);
 
   formData.append("answers", JSON.stringify(answers));
@@ -59,11 +62,21 @@ export async function submitScan(
     console.log("Backend status:", response.status);
     console.log("Raw backend response:", text);
 
-    if (!response.ok) {
-      throw new Error(`Backend error: ${response.status} ${text}`);
+    let parsed: AnalyzeResponse;
+
+    try {
+      parsed = JSON.parse(text) as AnalyzeResponse;
+    } catch {
+      throw new Error(`Invalid JSON response from backend: ${text}`);
     }
 
-    return JSON.parse(text) as AnalyzeResponse;
+    if (!response.ok) {
+      throw new Error(
+        parsed?.message || `Backend error: ${response.status} ${text}`,
+      );
+    }
+
+    return parsed;
   } catch (error) {
     console.error("submitScan failed:", error);
     throw error;
