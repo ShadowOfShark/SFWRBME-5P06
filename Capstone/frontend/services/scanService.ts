@@ -25,7 +25,11 @@ export type AnalyzeResponse = {
   received_answers?: Record<string, string>;
 };
 
-const API_BASE_URL = "https://sfwrbme-5p06.onrender.com";
+// Render (cloud)
+// const API_BASE_URL = "https://sfwrbme-5p06.onrender.com";
+
+// Local server
+const API_BASE_URL = "http://192.168.106.244:8000";
 
 export async function submitScan(
   imageUri: string,
